@@ -78,14 +78,16 @@ function mapCategory(c) {
   return valid.includes(c) ? c : '';
 }
 
-function buildSlug(name) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+function buildSlug(name, airtableId) {
+  const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const suffix = airtableId ? '-' + airtableId.slice(-6) : '-' + Date.now().toString().slice(-6);
+  return base + suffix;
 }
 
 function buildWebflowFields(item) {
   const fields = {
     name:          item.name,
-    slug:          buildSlug(item.name),
+    slug:          buildSlug(item.name, item.airtableId),
     category:      mapCategory(item.category || ''),
     status:        mapStatus(item.status || ''),
     featured:      item.featured || false,
@@ -145,11 +147,17 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'items array required' });
     }
 
+    // Filter out any items without a name to prevent Airtable errors
+    const validItems = items.filter(i => i.name && i.name.trim().length > 0);
+    if (validItems.length === 0) {
+      return res.status(400).json({ error: 'No valid items to publish' });
+    }
+
     const existingRecords = await getAllAirtableRecords();
     const results = [];
     const webflowIdsToPublish = [];
 
-    for (const item of items) {
+    for (const item of validItems) {
       const existing = item.airtableId
         ? existingRecords.find(r => r.id === item.airtableId)
         : null;
