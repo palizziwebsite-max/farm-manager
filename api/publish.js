@@ -23,7 +23,7 @@ async function airtableRequest(method, path, body) {
 
 async function getAllAirtableRecords() {
   const data = await airtableRequest('GET',
-    `${AIRTABLE_TABLE}?fields[]=Name&fields[]=Category&fields[]=Status&fields[]=Photo&fields[]=Featured&fields[]=Description&fields[]=WebflowID`
+    `${AIRTABLE_TABLE}?fields[]=Name&fields[]=Category&fields[]=Status&fields[]=Photo&fields[]=Featured&fields[]=Description&fields[]=Webflow ID`
   );
   return data.records;
 }
@@ -172,13 +172,13 @@ export default async function handler(req, res) {
           await updateWebflowItem(webflowId, { ...item, airtableId });
         } else {
           webflowId = await createWebflowItem({ ...item, airtableId });
-          await updateAirtableRecord(airtableId, { WebflowID: webflowId });
+          await updateAirtableRecord(airtableId, { "Webflow ID": webflowId });
         }
       } else {
         const newRecord = await createAirtableRecord(airtableFields);
         airtableId = newRecord.id;
         webflowId  = await createWebflowItem({ ...item, airtableId });
-        await updateAirtableRecord(airtableId, { WebflowID: webflowId });
+        await updateAirtableRecord(airtableId, { "Webflow ID": webflowId });
       }
 
       webflowIdsToPublish.push(webflowId);
@@ -189,7 +189,7 @@ export default async function handler(req, res) {
     const publishedAirtableIds = results.map(r => r.airtableId);
     for (const record of existingRecords) {
       if (!publishedAirtableIds.includes(record.id)) {
-        const wfId = record.fields['WebflowID'];
+        const wfId = record.fields['Webflow ID'];
         if (wfId) {
           try { await deleteWebflowItem(wfId); } catch(e) { console.warn('Webflow delete failed:', e.message); }
         }
