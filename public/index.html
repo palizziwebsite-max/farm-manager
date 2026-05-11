@@ -173,15 +173,24 @@
         </label>
         <input type="file" id="add-img-input" accept="image/*" onchange="handleAddImg(event)" style="display:none" />
       </div>
-      <div class="field">
-        <label>Category</label>
-        <select id="product-category">
-          <option value="">Select category...</option>
-          <option value="Vegetables">Vegetables</option>
-          <option value="Fruit">Fruit</option>
-          <option value="Peppers">Peppers</option>
-          <option value="Other">Other</option>
-        </select>
+      <div class="field-grid" style="margin-bottom:8px;">
+        <div class="field" style="margin:0;"><label>Category</label>
+          <select id="product-category">
+            <option value="">Select category...</option>
+            <option value="Vegetables">Vegetables</option>
+            <option value="Fruit">Fruit</option>
+            <option value="Peppers">Peppers</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0;"><label>Status</label>
+          <select id="product-status">
+            <option value="">Select status...</option>
+            <option value="in-season">In Season</option>
+            <option value="out-of-season">Out of Season</option>
+            <option value="coming-soon">Coming Soon</option>
+          </select>
+        </div>
       </div>
       <button class="add-btn" onclick="addItem()">+ Add to Inventory</button>
     </div>
@@ -238,8 +247,9 @@
   function addItem(){
     const el=document.getElementById('product-name');const name=el.value.trim();if(!name){el.focus();return;}
     const category=document.getElementById('product-category').value;
-    items.unshift({id:Date.now(),name,img:addImgData,status:null,category,editing:false,deleted:false,featured:false,description:''});
-    el.value='';document.getElementById('product-category').value='';removeAddImg();render();
+    const status=document.getElementById('product-status').value||null;
+    items.unshift({id:Date.now(),name,img:addImgData,status,category,editing:false,deleted:false,featured:false,description:''});
+    el.value='';document.getElementById('product-category').value='';document.getElementById('product-status').value='';removeAddImg();render();
   }
   function setStatus(id,s){const i=items.find(x=>x.id===id);if(i&&!i.deleted)i.status=i.status===s?null:s;render();}
   function softDeleteItem(id){
@@ -320,7 +330,7 @@
   }
   function cancelEditItem(id){const item=items.find(i=>i.id===id);if(item)item.editing=false;delete editImgData[id];render();}
 
-  function publish(){
+  async function publish(){
     const errs=featuredErrors();
     const errEl=document.getElementById('pub-error');
     const errMain=document.getElementById('pub-error-main');
@@ -338,11 +348,49 @@
     document.getElementById('pub-main').className='pub-main ok';document.getElementById('pub-main').textContent='Publishing...';
     document.getElementById('pub-sub').className='pub-sub ok';document.getElementById('pub-sub').textContent='Syncing to Airtable';
     document.getElementById('pub-actions').innerHTML='';
-    setTimeout(()=>{
+    const bar=document.getElementById('publish-bar');
+    bar.className='publish-bar publishing';
+    document.getElementById('pub-main').className='pub-main ok';
+    document.getElementById('pub-main').textContent='Publishing...';
+    document.getElementById('pub-sub').className='pub-sub ok';
+    document.getElementById('pub-sub').textContent='Syncing to Airtable & Webflow';
+    document.getElementById('pub-actions').innerHTML='';
+
+    try {
+      const payload=items.filter(i=>!i.deleted).map(i=>({
+        id:i.id,airtableId:i.airtableId||null,webflowId:i.webflowId||null,
+        name:i.name,category:i.category||'',status:i.status||'',
+        img:i.img||'',featured:i.featured||false,description:i.description||''
+      }));
+
+      const res=await fetch('/api/publish',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer palizzi-farm-2026-secret'},
+        body:JSON.stringify({items:payload})
+      });
+
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.error||'Publish failed');
+
+      data.results.forEach(r=>{
+        const item=items.find(i=>i.id===r.localId);
+        if(item){item.airtableId=r.airtableId;item.webflowId=r.webflowId;}
+      });
+
       items=items.filter(i=>!i.deleted);
-      publishedItems=deepClone(items);lastPublished=new Date();publishState='published';render();
+      publishedItems=deepClone(items);
+      lastPublished=new Date();publishState='published';render();
       setTimeout(()=>{publishState='clean';render();},3000);
-    },1200);
+
+    } catch(err) {
+      console.error('Publish error:',err);
+      bar.className='publish-bar dirty';
+      document.getElementById('pub-main').className='pub-main dirty';
+      document.getElementById('pub-main').textContent='Publish failed';
+      document.getElementById('pub-sub').className='pub-sub dirty';
+      document.getElementById('pub-sub').textContent=err.message;
+      document.getElementById('pub-actions').innerHTML='<button class="pub-btn btn-discard" onclick="discard()">Discard</button><button class="pub-btn btn-publish" onclick="publish()">Try again</button>';
+    }
   }
   function discard(){items=deepClone(publishedItems);editImgData={};activeFilter='all';activeCategory='all';render();}
 
