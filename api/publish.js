@@ -1,13 +1,11 @@
 // api/publish.js
-// Serverless function that syncs produce data to Airtable and Webflow
-
-const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN;
-const AIRTABLE_BASE  = process.env.AIRTABLE_BASE;
-const AIRTABLE_TABLE = process.env.AIRTABLE_TABLE;
-const WEBFLOW_TOKEN  = process.env.WEBFLOW_TOKEN;
+const AIRTABLE_TOKEN     = process.env.AIRTABLE_TOKEN;
+const AIRTABLE_BASE      = process.env.AIRTABLE_BASE;
+const AIRTABLE_TABLE     = process.env.AIRTABLE_TABLE;
+const WEBFLOW_TOKEN      = process.env.WEBFLOW_TOKEN;
 const WEBFLOW_COLLECTION = process.env.WEBFLOW_COLLECTION;
 
-// ─── Airtable helpers ────────────────────────────────────────────────────────
+// ─── Airtable helpers ─────────────────────────────────────────────────────────
 
 async function airtableRequest(method, path, body) {
   const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE}/${path}`, {
@@ -18,36 +16,36 @@ async function airtableRequest(method, path, body) {
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Airtable ${method} ${path} failed: ${err}`);
-  }
-  return res.json();
+  const text = await res.text();
+  if (!res.ok) throw new Error(`Airtable ${method} ${path} failed: ${text}`);
+  return JSON.parse(text);
 }
 
 async function getAllAirtableRecords() {
-  const data = await airtableRequest('GET', `${AIRTABLE_TABLE}?fields[]=Name&fields[]=Category&fields[]=Status&fields[]=Photo&fields[]=Featured&fields[]=Description&fields[]=WebflowID`);
-  return data.records; // [{ id, fields }]
+  const data = await airtableRequest('GET',
+    `${AIRTABLE_TABLE}?fields[]=Name&fields[]=Category&fields[]=Status&fields[]=Photo&fields[]=Featured&fields[]=Description&fields[]=WebflowID`
+  );
+  return data.records;
 }
 
 async function createAirtableRecord(fields) {
-  const data = await airtableRequest('POST', AIRTABLE_TABLE, {
-    records: [{ fields }],
-  });
-  return data.records[0]; // { id, fields }
+  const data = await airtableRequest('POST', AIRTABLE_TABLE, { records: [{ fields }] });
+  return data.records[0];
 }
 
 async function updateAirtableRecord(recordId, fields) {
-  await airtableRequest('PATCH', `${AIRTABLE_TABLE}/${recordId}`, {
-    fields,
-  });
+  await airtableRequest('PATCH', `${AIRTABLE_TABLE}/${recordId}`, { fields });
 }
 
 async function deleteAirtableRecord(recordId) {
-  await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE}/${AIRTABLE_TABLE}/${recordId}`, {
+  const res = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE}/${AIRTABLE_TABLE}/${recordId}`, {
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${AIRTABLE_TOKEN}` },
   });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Airtable DELETE failed: ${text}`);
+  }
 }
 
 // ─── Webflow helpers ──────────────────────────────────────────────────────────
@@ -58,27 +56,49 @@ async function webflowRequest(method, path, body) {
     headers: {
       'Authorization': `Bearer ${WEBFLOW_TOKEN}`,
       'Content-Type': 'application/json',
+      'accept': 'application/json',
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Webflow ${method} ${path} failed: ${err}`);
-  }
-  return res.json();
+  const text = await res.text();
+  if (!res.ok) throw new Error(`Webflow ${method} ${path} failed: ${text}`);
+  return text ? JSON.parse(text) : {};
+}
+
+// Map status/category values from app format to Webflow option format
+function mapStatus(s) {
+  if (s === 'in-season')      return 'In Season';
+  if (s === 'out-of-season')  return 'Out of Season';
+  if (s === 'coming-soon')    return 'Coming Soon';
+  return '';
+}
+
+function mapCategory(c) {
+  const valid = ['Vegetables', 'Fruit', 'Peppers', 'Other'];
+  return valid.includes(c) ? c : '';
+}
+
+function buildSlug(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
 function buildWebflowFields(item) {
-  return {
-    name: item.name,
-    slug: item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
-    category: item.category || '',
-    status: item.status || '',
-    photo: item.img ? { url: item.img } : undefined,
-    featured: item.featured || false,
-    description: item.description || '',
+  const fields = {
+    name:          item.name,
+    slug:          buildSlug(item.name),
+    category:      mapCategory(item.category || ''),
+    status:        mapStatus(item.status || ''),
+    featured:      item.featured || false,
+    description:   item.description || '',
     'airtable-id': item.airtableId || '',
   };
+
+  // Only include photo if there's an actual URL
+  if (item.img && item.img.startsWith('http')) {
+    fields.photo = { url: item.img };
+  }
+
+  return fields;
 }
 
 async function createWebflowItem(item) {
@@ -100,21 +120,20 @@ async function deleteWebflowItem(webflowId) {
   await webflowRequest('DELETE', `/collections/${WEBFLOW_COLLECTION}/items/${webflowId}`);
 }
 
-async function publishWebflowCollection() {
+async function publishWebflowItems(itemIds) {
+  if (itemIds.length === 0) return;
   await webflowRequest('POST', `/collections/${WEBFLOW_COLLECTION}/items/publish`, {
-    itemIds: [],
+    itemIds,
   });
 }
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
-  // Only allow POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Basic auth check via a shared secret
   const authHeader = req.headers['authorization'];
   if (authHeader !== `Bearer ${process.env.APP_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -126,23 +145,21 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'items array required' });
     }
 
-    // Get all existing Airtable records so we can diff
     const existingRecords = await getAllAirtableRecords();
-
     const results = [];
+    const webflowIdsToPublish = [];
 
     for (const item of items) {
-      // Find matching Airtable record by airtableId if it exists
       const existing = item.airtableId
         ? existingRecords.find(r => r.id === item.airtableId)
         : null;
 
       const airtableFields = {
-        Name: item.name,
-        Category: item.category || '',
-        Status: item.status || '',
-        Photo: item.img || '',
-        Featured: item.featured || false,
+        Name:        item.name,
+        Category:    mapCategory(item.category || ''),
+        Status:      mapStatus(item.status || ''),
+        Photo:       item.img || '',
+        Featured:    item.featured || false,
         Description: item.description || '',
       };
 
@@ -150,47 +167,43 @@ export default async function handler(req, res) {
       let webflowId  = item.webflowId;
 
       if (existing) {
-        // ── UPDATE existing record ──
         await updateAirtableRecord(airtableId, airtableFields);
-
         if (webflowId) {
           await updateWebflowItem(webflowId, { ...item, airtableId });
         } else {
-          // Webflow item doesn't exist yet — create it
           webflowId = await createWebflowItem({ ...item, airtableId });
           await updateAirtableRecord(airtableId, { WebflowID: webflowId });
         }
       } else {
-        // ── CREATE new record ──
         const newRecord = await createAirtableRecord(airtableFields);
         airtableId = newRecord.id;
-
-        webflowId = await createWebflowItem({ ...item, airtableId });
-
-        // Store Webflow ID back in Airtable
+        webflowId  = await createWebflowItem({ ...item, airtableId });
         await updateAirtableRecord(airtableId, { WebflowID: webflowId });
       }
 
+      webflowIdsToPublish.push(webflowId);
       results.push({ localId: item.id, airtableId, webflowId });
     }
 
-    // Handle deletions — items in Airtable that weren't in the publish payload
+    // Delete items that were removed
     const publishedAirtableIds = results.map(r => r.airtableId);
     for (const record of existingRecords) {
       if (!publishedAirtableIds.includes(record.id)) {
-        const webflowId = record.fields['WebflowID'];
-        if (webflowId) await deleteWebflowItem(webflowId);
+        const wfId = record.fields['WebflowID'];
+        if (wfId) {
+          try { await deleteWebflowItem(wfId); } catch(e) { console.warn('Webflow delete failed:', e.message); }
+        }
         await deleteAirtableRecord(record.id);
       }
     }
 
-    // Publish all changes live on Webflow
-    await publishWebflowCollection();
+    // Publish all updated items live on Webflow
+    await publishWebflowItems(webflowIdsToPublish);
 
     return res.status(200).json({ success: true, results });
 
   } catch (err) {
-    console.error('Publish error:', err);
+    console.error('Publish error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 }
