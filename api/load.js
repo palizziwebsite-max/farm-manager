@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE}/${AIRTABLE_TABLE}?fields[]=Name&fields[]=Category&fields[]=Status&fields[]=Photo&fields[]=Featured&fields[]=Description&fields[]=WebflowID`;
+    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE}/${AIRTABLE_TABLE}?fields[]=Name&fields[]=Category&fields[]=Status&fields[]=Photo&fields[]=Featured&fields[]=Description&fields[]=Webflow ID`;
 
     const response = await fetch(url, {
       headers: {
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     const items = data.records.map(record => ({
       id:          record.id, // use airtable record id as local id too
       airtableId:  record.id,
-      webflowId:   record.fields['WebflowID'] || null,
+      webflowId:   record.fields['Webflow ID'] || null,
       name:        record.fields['Name'] || '',
       category:    record.fields['Category'] || '',
       status:      record.fields['Status'] || null,
