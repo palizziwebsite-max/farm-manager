@@ -359,7 +359,8 @@
       const payload=items.filter(i=>!i.deleted).map(i=>({
         id:i.id,airtableId:i.airtableId||null,webflowId:i.webflowId||null,
         name:i.name,category:i.category||'',status:i.status||'',
-        img:i.img||'',featured:i.featured||false,description:i.description||''
+        img:(i.img&&i.img.startsWith('http'))?i.img:'',
+        featured:i.featured||false,description:i.description||''
       }));
 
       const res=await fetch('/api/publish',{
