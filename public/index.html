@@ -63,6 +63,9 @@
   .filter-btn.f-cat { background: #f0efff; color: #4c1d95; border-color: #8b5cf6; }
   .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #aaa; margin-bottom: 10px; }
   .empty-state { text-align: center; padding: 2rem 1rem; color: #bbb; font-size: 14px; border: 1.5px dashed #e0dfd9; border-radius: 12px; line-height: 1.6; }
+  .loading-state { text-align: center; padding: 2rem 1rem; color: #aaa; font-size: 14px; }
+  .loading-spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #e0dfd9; border-top-color: #10b981; border-radius: 50%; animation: spin 0.7s linear infinite; margin-bottom: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .no-results { text-align: center; padding: 1.5rem 1rem; color: #bbb; font-size: 14px; }
   .list { display: flex; flex-direction: column; gap: 10px; }
   .item-card { background: #fff; border: 1px solid #e8e7e3; border-radius: 12px; overflow: hidden; }
@@ -201,7 +204,8 @@
       <div class="filter-bar" id="cat-filter-bar"></div>
     </div>
     <div class="section-label" id="inv-label" style="display:none;">Current inventory</div>
-    <div id="inv-empty" class="empty-state">No produce added yet.<br>Add your first item above.</div>
+    <div id="inv-loading" class="loading-state"><div class="loading-spinner"></div><br>Loading inventory...</div>
+    <div id="inv-empty" class="empty-state" style="display:none;">No produce added yet.<br>Add your first item above.</div>
     <div class="list" id="items-list"></div>
   </div>
 
@@ -427,6 +431,7 @@
     const fs=document.getElementById('filter-section'),fb=document.getElementById('filter-bar'),cfb=document.getElementById('cat-filter-bar');
     const visible=items.filter(i=>!i.deleted);
     const deleted=items.filter(i=>i.deleted);
+    const loading=document.getElementById('inv-loading');if(loading)loading.style.display='none';
     if(items.length===0){empty.style.display='block';label.style.display='none';fs.style.display='none';list.innerHTML='';return;}
     empty.style.display='none';label.style.display='block';fs.style.display='block';
     const inS=visible.filter(i=>i.status==='in-season').length;
@@ -483,7 +488,29 @@
   }
 
   function render(){renderBar();renderInventory();}
-  render();
+
+  async function loadItems(){
+    const loadingEl=document.getElementById('inv-loading');
+    const emptyEl=document.getElementById('inv-empty');
+    try {
+      const res=await fetch('/api/load',{
+        headers:{'Authorization':'Bearer palizzi-farm-2026-secret'}
+      });
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.error||'Load failed');
+      items=data.items;
+      publishedItems=deepClone(items);
+      if(loadingEl)loadingEl.style.display='none';
+      render();
+    } catch(err){
+      console.error('Load error:',err);
+      if(loadingEl)loadingEl.style.display='none';
+      if(emptyEl)emptyEl.style.display='block';
+      render();
+    }
+  }
+
+  loadItems();
 </script>
 </body>
 </html>
