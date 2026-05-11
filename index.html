@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Farm Manager</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f4f0; min-height: 100vh; padding: 1rem; }
+  .app { max-width: 480px; margin: 0 auto; }
+  .header { margin-bottom: 1rem; }
+  .header h1 { font-size: 22px; font-weight: 600; color: #1a1a1a; }
+  .header p { font-size: 13px; color: #888; margin-top: 3px; }
+  .publish-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; padding: 12px 16px 20px; display: none; border-radius: 0; border-top: 1px solid rgba(0,0,0,0.08); }
+  .pub-note { font-size: 11px; margin-top: 6px; }
+  .pub-note.dirty { color: #b45309; }
+  .pub-note.ok { color: #059669; }
+  .page-bottom-pad { height: 110px; }
+  .publish-bar.dirty { display: block; background: #fef3e2; border-top: 1px solid #f59e0b; }
+  .publish-bar.publishing, .publish-bar.published { display: block; background: #ecfdf5; border-top: 1px solid #10b981; }
+  .pub-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .pub-main { font-size: 13px; font-weight: 600; }
+  .pub-main.dirty { color: #92400e; }
+  .pub-main.ok { color: #065f46; }
+  .pub-sub { font-size: 12px; margin-top: 2px; }
+  .pub-sub.dirty { color: #b45309; }
+  .pub-sub.ok { color: #059669; }
+  .pub-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .pub-btn { height: 32px; padding: 0 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; border: none; }
+  .btn-publish { background: #10b981; color: #fff; }
+  .btn-publish:hover { background: #059669; }
+  .btn-discard { background: transparent; color: #92400e; border: 1px solid #f59e0b !important; }
+  .btn-discard:hover { background: rgba(245,158,11,0.1); }
+  .card { background: #fff; border: 1px solid #e8e7e3; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; }
+  .card-title { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #aaa; margin-bottom: 12px; }
+  .field { margin-bottom: 8px; }
+  .field label { display: block; font-size: 11px; color: #aaa; margin-bottom: 4px; font-weight: 500; }
+  .field input, .field select { width: 100%; height: 38px; padding: 0 12px; font-size: 14px; border: 1px solid #e0dfd9; border-radius: 8px; background: #faf9f7; color: #1a1a1a; outline: none; font-family: inherit; }
+  .field input:focus, .field select:focus { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.12); }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .input-photo-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .input-photo-row input { flex: 1; height: 38px; padding: 0 12px; font-size: 14px; border: 1px solid #e0dfd9; border-radius: 8px; background: #faf9f7; color: #1a1a1a; outline: none; font-family: inherit; }
+  .input-photo-row input:focus { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.12); }
+  .photo-label { display: flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; border: 1px solid #e0dfd9; border-radius: 8px; background: #faf9f7; color: #888; font-size: 13px; cursor: pointer; white-space: nowrap; font-family: inherit; }
+  .photo-label:hover { border-color: #10b981; color: #1a1a1a; }
+  .img-preview-wrap { position: relative; margin-bottom: 8px; display: none; }
+  .img-preview-wrap img { width: 100%; height: 90px; object-fit: cover; border-radius: 8px; border: 1px solid #e8e7e3; }
+  .img-remove { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.55); border: none; border-radius: 50%; width: 22px; height: 22px; color: #fff; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .add-btn { width: 100%; height: 42px; background: #10b981; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+  .add-btn:hover { background: #059669; }
+  .add-btn:active { transform: scale(0.98); }
+  .filter-section { margin-bottom: 1rem; }
+  .filter-label { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #ccc; margin-bottom: 6px; }
+  .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-bar + .filter-label { margin-top: 10px; }
+  .filter-btn { height: 30px; padding: 0 12px; border-radius: 20px; border: 1px solid #e0dfd9; background: #fff; color: #888; font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; white-space: nowrap; transition: all 0.12s; }
+  .filter-btn:hover { border-color: #aaa; color: #1a1a1a; }
+  .filter-btn.f-all { background: #f0efeb; color: #1a1a1a; border-color: #ccc; }
+  .filter-btn.f-in { background: #ecfdf5; color: #065f46; border-color: #10b981; }
+  .filter-btn.f-out { background: #fef2f2; color: #991b1b; border-color: #ef4444; }
+  .filter-btn.f-soon { background: #fef3e2; color: #92400e; border-color: #f59e0b; }
+  .filter-btn.f-none { background: #f0efeb; color: #888; border-color: #ccc; }
+  .filter-btn.f-cat { background: #f0efff; color: #4c1d95; border-color: #8b5cf6; }
+  .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #aaa; margin-bottom: 10px; }
+  .empty-state { text-align: center; padding: 2rem 1rem; color: #bbb; font-size: 14px; border: 1.5px dashed #e0dfd9; border-radius: 12px; line-height: 1.6; }
+  .no-results { text-align: center; padding: 1.5rem 1rem; color: #bbb; font-size: 14px; }
+  .list { display: flex; flex-direction: column; gap: 10px; }
+  .item-card { background: #fff; border: 1px solid #e8e7e3; border-radius: 12px; overflow: hidden; }
+  .item-card.in-season { border-left: 3px solid #10b981; }
+  .item-card.out-of-season { border-left: 3px solid #ef4444; }
+  .item-card.coming-soon { border-left: 3px solid #f59e0b; }
+  .item-card.is-new { border-left: 3px solid #3b82f6; }
+  .item-card.is-modified { border-left: 3px solid #8b5cf6; }
+  .item-card.is-deleted { border-left: 3px solid #ef4444; opacity: 0.5; background: #fff5f5; }
+  .item-inner { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+  .item-thumb { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; flex-shrink: 0; border: 1px solid #e8e7e3; }
+  .item-thumb-ph { width: 48px; height: 48px; border-radius: 8px; flex-shrink: 0; background: #f5f4f0; border: 1px solid #e8e7e3; display: flex; align-items: center; justify-content: center; }
+  .item-thumb-ph svg { width: 20px; height: 20px; opacity: 0.25; }
+  .item-meta { flex: 1; min-width: 0; }
+  .item-name { font-size: 15px; font-weight: 600; color: #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item-category { font-size: 11px; color: #aaa; margin-top: 1px; font-weight: 500; }
+  .change-tag { font-size: 11px; margin-top: 2px; font-weight: 500; }
+  .change-tag.new { color: #2563eb; }
+  .change-tag.modified { color: #7c3aed; }
+  .change-tag.deleted { color: #dc2626; }
+  .status-badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+  .status-badge.in-season { background: #ecfdf5; color: #065f46; }
+  .status-badge.out-of-season { background: #fef2f2; color: #991b1b; }
+  .status-badge.coming-soon { background: #fef3e2; color: #92400e; }
+  .status-badge.none { background: #f5f4f0; color: #888; }
+  .item-actions { display: flex; border-top: 1px solid #f0efeb; }
+  .action-btn { flex: 1; height: 36px; border: none; background: transparent; font-size: 11px; font-weight: 500; cursor: pointer; color: #aaa; font-family: inherit; white-space: nowrap; padding: 0 4px; transition: all 0.12s; }
+  .action-btn:not(:last-child) { border-right: 1px solid #f0efeb; }
+  .action-btn:hover { background: #f5f4f0; color: #1a1a1a; }
+  .action-btn.a-in { color: #059669; }
+  .action-btn.a-out { color: #dc2626; }
+  .action-btn.a-soon { color: #d97706; }
+  .action-btn.a-edit { color: #2563eb; }
+  .action-btn.a-del:hover { background: #fef2f2; color: #dc2626; }
+  .action-btn.a-restore { color: #059669; }
+  .action-btn.a-restore:hover { background: #ecfdf5; }
+  .action-btn.a-feat { color: #b45309; }
+  .action-btn.a-feat.is-featured { color: #d97706; font-weight: 600; }
+  .action-btn.a-feat:hover { background: #fef3e2; color: #d97706; }
+  .action-btn.a-feat.maxed { color: #ddd; cursor: not-allowed; }
+  .action-btn.a-feat.maxed:hover { background: transparent; color: #ddd; }
+  .item-card.is-featured { border-left: 3px solid #f59e0b; }
+  .featured-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #92400e; background: #fef3e2; border: 1px solid #fcd34d; padding: 2px 8px; border-radius: 20px; margin-top: 3px; width: fit-content; }
+  .feat-panel { border-top: 1px solid #fde68a; padding: 12px; background: #fffbeb; display: none; }
+  .feat-panel.open { display: block; }
+  .feat-panel-title { font-size: 11px; font-weight: 600; color: #92400e; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .feat-slots { font-size: 12px; color: #b45309; margin-bottom: 8px; }
+  .feat-textarea { width: 100%; min-height: 72px; padding: 8px 10px; font-size: 14px; border: 1px solid #f59e0b; border-radius: 8px; background: #fff; color: #1a1a1a; outline: none; font-family: inherit; resize: none; line-height: 1.5; }
+  .feat-textarea:focus { box-shadow: 0 0 0 3px rgba(245,158,11,0.15); }
+  .feat-textarea.invalid { border-color: #ef4444; }
+  .feat-word-count { font-size: 11px; margin-top: 5px; font-weight: 500; }
+  .feat-word-count.ok { color: #059669; }
+  .feat-word-count.warn { color: #d97706; }
+  .feat-word-count.bad { color: #dc2626; }
+  .pub-error { background: #fef2f2; border: 1px solid #ef4444; border-radius: 12px; padding: 10px 14px; margin-bottom: 1.25rem; display: none; }
+  .pub-error.show { display: block; }
+  .pub-error-main { font-size: 13px; font-weight: 600; color: #991b1b; }
+  .pub-error-sub { font-size: 12px; color: #dc2626; margin-top: 2px; }
+  .edit-panel { display: none; border-top: 1px solid #f0efeb; padding: 12px; background: #faf9f7; }
+  .edit-panel.open { display: block; }
+  .ep-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .ep-row input, .ep-row select { flex: 1; height: 36px; padding: 0 10px; font-size: 14px; border: 1px solid #e0dfd9; border-radius: 8px; background: #fff; color: #1a1a1a; outline: none; font-family: inherit; }
+  .ep-row input:focus, .ep-row select:focus { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.12); }
+  .ep-photo-label { display: flex; align-items: center; gap: 5px; height: 36px; padding: 0 12px; border: 1px solid #e0dfd9; border-radius: 8px; background: #fff; color: #888; font-size: 12px; cursor: pointer; white-space: nowrap; font-family: inherit; }
+  .ep-photo-label:hover { border-color: #10b981; }
+  .ep-thumb-wrap { position: relative; margin-bottom: 8px; }
+  .ep-thumb-wrap img { width: 100%; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid #e8e7e3; }
+  .ep-thumb-rm { position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.55); border: none; border-radius: 50%; width: 20px; height: 20px; color: #fff; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .ep-save { flex: 1; height: 36px; background: #10b981; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .ep-save:hover { background: #059669; }
+  .ep-cancel { height: 36px; padding: 0 14px; background: transparent; color: #888; border: 1px solid #e0dfd9; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .ep-cancel:hover { background: #fff; }
+  select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px !important; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>Farm Manager</h1>
+    <p>Update produce availability, then publish when ready to go live</p>
+  </div>
+
+  <div class="publish-bar" id="publish-bar">
+    <div style="max-width:480px;margin:0 auto;">
+      <div class="pub-top">
+        <div><div class="pub-main" id="pub-main"></div><div class="pub-sub" id="pub-sub"></div></div>
+        <div class="pub-actions" id="pub-actions"></div>
+      </div>
+      <div class="pub-note" id="pub-note"></div>
+    </div>
+  </div>
+  <div class="pub-error" id="pub-error">
+    <div class="pub-error-main" id="pub-error-main"></div>
+    <div class="pub-error-sub" id="pub-error-sub"></div>
+  </div>
+
+    <div class="card">
+      <div class="card-title">Add new item</div>
+      <div class="img-preview-wrap" id="add-img-wrap">
+        <img id="add-img-preview" src="" alt="" />
+        <button class="img-remove" onclick="removeAddImg()">✕</button>
+      </div>
+      <div class="input-photo-row">
+        <input type="text" id="product-name" placeholder="Product name..." onkeydown="if(event.key==='Enter')addItem()" />
+        <label class="photo-label" for="add-img-input">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="1.5"/><circle cx="5.5" cy="6.5" r="1"/><path d="M1 10l4-3 3 3 2-2 5 4"/></svg>
+          Photo
+        </label>
+        <input type="file" id="add-img-input" accept="image/*" onchange="handleAddImg(event)" style="display:none" />
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <select id="product-category">
+          <option value="">Select category...</option>
+          <option value="Vegetables">Vegetables</option>
+          <option value="Fruit">Fruit</option>
+          <option value="Peppers">Peppers</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <button class="add-btn" onclick="addItem()">+ Add to Inventory</button>
+    </div>
+    <div class="filter-section" id="filter-section" style="display:none;">
+      <div class="filter-label">Status</div>
+      <div class="filter-bar" id="filter-bar"></div>
+      <div class="filter-label" id="cat-filter-label">Category</div>
+      <div class="filter-bar" id="cat-filter-bar"></div>
+    </div>
+    <div class="section-label" id="inv-label" style="display:none;">Current inventory</div>
+    <div id="inv-empty" class="empty-state">No produce added yet.<br>Add your first item above.</div>
+    <div class="list" id="items-list"></div>
+  </div>
+
+  <div class="page-bottom-pad"></div>
+</div>
+
+<script>
+  let activeTab = 'inventory';
+  let items = [], publishedItems = [];
+  let addImgData = null, editImgData = {};
+  let activeFilter = 'all';
+  let activeCategory = 'all';
+  let publishState = 'clean', lastPublished = null;
+  const CATS = ['Vegetables','Fruit','Peppers','Other'];
+
+  function switchTab(t) {
+    activeTab = t;
+  }
+  function deepClone(a){return JSON.parse(JSON.stringify(a));}
+  function itemDiff(a,b){return !b||a.name!==b.name||a.status!==b.status||a.img!==b.img||a.category!==b.category||!!a.deleted!==!!b.deleted||!!a.featured!==!!b.featured||(a.description||"")!==(b.description||"");}
+  function isDirty(){
+    if(items.length!==publishedItems.length)return true;
+    for(let i of items){const p=publishedItems.find(x=>x.id===i.id);if(itemDiff(i,p))return true;}
+    return false;
+  }
+  function countChanges(){
+    let n=0;
+    items.forEach(i=>{const p=publishedItems.find(x=>x.id===i.id);if(itemDiff(i,p))n++;});
+    publishedItems.forEach(p=>{if(!items.find(i=>i.id===p.id))n++;});
+    return n;
+  }
+  function getItemChange(item){
+    const p=publishedItems.find(x=>x.id===item.id);
+    if(item.deleted)return 'deleted';
+    if(!p)return 'new';
+    if(itemDiff(item,p))return 'modified';
+    return null;
+  }
+
+  function handleAddImg(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>{addImgData=ev.target.result;document.getElementById('add-img-preview').src=addImgData;document.getElementById('add-img-wrap').style.display='block';};r.readAsDataURL(file);}
+  function removeAddImg(){addImgData=null;document.getElementById('add-img-input').value='';document.getElementById('add-img-wrap').style.display='none';}
+
+  function addItem(){
+    const el=document.getElementById('product-name');const name=el.value.trim();if(!name){el.focus();return;}
+    const category=document.getElementById('product-category').value;
+    items.unshift({id:Date.now(),name,img:addImgData,status:null,category,editing:false,deleted:false,featured:false,description:''});
+    el.value='';document.getElementById('product-category').value='';removeAddImg();render();
+  }
+  function setStatus(id,s){const i=items.find(x=>x.id===id);if(i&&!i.deleted)i.status=i.status===s?null:s;render();}
+  function softDeleteItem(id){
+    const i=items.find(x=>x.id===id);if(!i)return;
+    const isNew=!publishedItems.find(x=>x.id===id);
+    if(isNew){items=items.filter(x=>x.id!==id);}else{i.deleted=true;i.editing=false;}
+    render();
+  }
+  function restoreItem(id){const i=items.find(x=>x.id===id);if(i)i.deleted=false;render();}
+
+  function featuredCount(){return items.filter(i=>i.featured&&!i.deleted).length;}
+
+  function toggleFeatured(id){
+    const item=items.find(x=>x.id===id);
+    if(!item||item.deleted)return;
+    if(!item.featured){
+      if(featuredCount()>=3)return;
+      item.featured=true;
+    } else {
+      item.featured=false;
+    }
+    render();
+  }
+
+  function updateDescription(id){
+    const el=document.getElementById('feat-desc-'+id);
+    if(!el)return;
+    const item=items.find(x=>x.id===id);
+    if(item)item.description=el.value;
+    renderWordCount(id);
+    renderBar();
+  }
+
+  function wordCount(str){
+    if(!str||!str.trim())return 0;
+    return str.trim().split(/\s+/).length;
+  }
+
+  function renderWordCount(id){
+    const item=items.find(x=>x.id===id);
+    if(!item)return;
+    const el=document.getElementById('feat-wc-'+id);
+    const ta=document.getElementById('feat-desc-'+id);
+    if(!el||!ta)return;
+    const wc=wordCount(item.description||'');
+    const ok=wc>=15&&wc<=30;
+    const cls=wc===0?'warn':ok?'ok':wc<15?'warn':'bad';
+    el.className='feat-word-count '+cls;
+    el.textContent=ok?`${wc} words — good to go`:wc<15?`${wc} words — need at least 15`:wc>30?`${wc} words — max is 30`:'Add a description';
+    ta.className='feat-textarea'+((!ok&&wc>0)?' invalid':'');
+  }
+
+  function featuredErrors(){
+    const errs=[];
+    const featured=items.filter(i=>i.featured&&!i.deleted);
+    featured.forEach(i=>{
+      const wc=wordCount(i.description||'');
+      if(wc<15||wc>30)errs.push(i.name);
+    });
+    return errs;
+  }
+  function setFilter(f){activeFilter=f;render();}
+  function setCatFilter(c){activeCategory=c;render();}
+  function toggleEditItem(id){
+    items.forEach(i=>{if(i.id!==id)i.editing=false;});
+    const item=items.find(i=>i.id===id);
+    if(item&&!item.deleted){item.editing=!item.editing;if(item.editing)editImgData[id]=item.img;}
+    render();
+    if(item&&item.editing){const inp=document.getElementById('ei-name-'+id);if(inp){inp.focus();inp.select();}}
+  }
+  function handleEditImg(id,e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>{editImgData[id]=ev.target.result;const w=document.getElementById('ei-wrap-'+id),img=document.getElementById('ei-img-'+id);if(w&&img){img.src=editImgData[id];w.style.display='block';}};r.readAsDataURL(file);}
+  function removeEditImg(id){editImgData[id]=null;const inp=document.getElementById('ei-file-'+id);if(inp)inp.value='';const w=document.getElementById('ei-wrap-'+id);if(w)w.style.display='none';}
+  function saveEditItem(id){
+    const el=document.getElementById('ei-name-'+id);const name=el?el.value.trim():'';if(!name){if(el)el.focus();return;}
+    const catEl=document.getElementById('ei-cat-'+id);
+    const item=items.find(i=>i.id===id);
+    if(item){item.name=name;item.img=editImgData[id]!==undefined?editImgData[id]:item.img;item.category=catEl?catEl.value:item.category;item.editing=false;}render();
+  }
+  function cancelEditItem(id){const item=items.find(i=>i.id===id);if(item)item.editing=false;delete editImgData[id];render();}
+
+  function publish(){
+    const errs=featuredErrors();
+    const errEl=document.getElementById('pub-error');
+    const errMain=document.getElementById('pub-error-main');
+    const errSub=document.getElementById('pub-error-sub');
+    if(errs.length>0){
+      errMain.textContent='Cannot publish — featured items need a description';
+      errSub.textContent=errs.map(n=>`"${n}" is missing a valid description (15–30 words)`).join(' · ');
+      errEl.className='pub-error show';
+      setTimeout(()=>{errEl.className='pub-error';},4000);
+      return;
+    }
+    errEl.className='pub-error';
+    const bar=document.getElementById('publish-bar');
+    bar.className='publish-bar publishing';
+    document.getElementById('pub-main').className='pub-main ok';document.getElementById('pub-main').textContent='Publishing...';
+    document.getElementById('pub-sub').className='pub-sub ok';document.getElementById('pub-sub').textContent='Syncing to Airtable';
+    document.getElementById('pub-actions').innerHTML='';
+    setTimeout(()=>{
+      items=items.filter(i=>!i.deleted);
+      publishedItems=deepClone(items);lastPublished=new Date();publishState='published';render();
+      setTimeout(()=>{publishState='clean';render();},3000);
+    },1200);
+  }
+  function discard(){items=deepClone(publishedItems);editImgData={};activeFilter='all';activeCategory='all';render();}
+
+  function statusLabel(s){
+    if(s==='in-season')return 'In Season';
+    if(s==='out-of-season')return 'Out of Season';
+    if(s==='coming-soon')return 'Coming Soon';
+    return 'No Status';
+  }
+  function fmtTime(d){return d?d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}
+
+  function renderBar(){
+    const bar=document.getElementById('publish-bar');
+    const pm=document.getElementById('pub-main'),ps=document.getElementById('pub-sub'),pa=document.getElementById('pub-actions');
+    if(publishState==='published'){
+      bar.className='publish-bar published';bar.style.display='block';
+      pm.className='pub-main ok';pm.textContent='Published successfully';
+      ps.className='pub-sub ok';ps.textContent='Live at '+fmtTime(lastPublished);pa.innerHTML='';
+      document.getElementById('pub-note').className='pub-note ok';
+      document.getElementById('pub-note').textContent='';
+    }else if(publishState==='publishing'){
+    }else if(isDirty()){
+      const n=countChanges();
+      bar.className='publish-bar dirty';bar.style.display='block';
+      pm.className='pub-main dirty';pm.textContent=n+' unsaved change'+(n!==1?'s':'');
+      ps.className='pub-sub dirty';ps.textContent='Not yet live — publish when ready';
+      pa.innerHTML='<button class="pub-btn btn-discard" onclick="discard()">Discard</button><button class="pub-btn btn-publish" onclick="publish()">Publish</button>';
+      const pn=document.getElementById('pub-note');if(pn){pn.className='pub-note dirty';pn.textContent='Finish all your changes first, then publish once to update the live site.';}
+    }else{bar.style.display='none';}
+  }
+
+  function renderInventory(){
+    const list=document.getElementById('items-list'),empty=document.getElementById('inv-empty'),label=document.getElementById('inv-label');
+    const fs=document.getElementById('filter-section'),fb=document.getElementById('filter-bar'),cfb=document.getElementById('cat-filter-bar');
+    const visible=items.filter(i=>!i.deleted);
+    const deleted=items.filter(i=>i.deleted);
+    if(items.length===0){empty.style.display='block';label.style.display='none';fs.style.display='none';list.innerHTML='';return;}
+    empty.style.display='none';label.style.display='block';fs.style.display='block';
+    const inS=visible.filter(i=>i.status==='in-season').length;
+    const outS=visible.filter(i=>i.status==='out-of-season').length;
+    const soon=visible.filter(i=>i.status==='coming-soon').length;
+    const none=visible.filter(i=>!i.status).length;
+    fb.innerHTML=[
+      {key:'all',label:`All (${visible.length})`,cls:'f-all'},
+      {key:'in-season',label:`In Season (${inS})`,cls:'f-in'},
+      {key:'out-of-season',label:`Out of Season (${outS})`,cls:'f-out'},
+      {key:'coming-soon',label:`Coming Soon (${soon})`,cls:'f-soon'},
+      {key:'none',label:`No Status (${none})`,cls:'f-none'}
+    ].map(f=>`<button class="filter-btn ${activeFilter===f.key?f.cls:''}" onclick="setFilter('${f.key}')">${f.label}</button>`).join('');
+    const catCounts={};
+    CATS.forEach(c=>{catCounts[c]=visible.filter(i=>i.category===c).length;});
+    const uncategorized=visible.filter(i=>!i.category).length;
+    cfb.innerHTML=[
+      {key:'all',label:`All`,cls:'f-all'},
+      ...CATS.map(c=>({key:c,label:`${c} (${catCounts[c]})`,cls:'f-cat'})),
+      {key:'uncategorized',label:`Uncategorized (${uncategorized})`,cls:'f-none'}
+    ].map(f=>`<button class="filter-btn ${activeCategory===f.key?f.cls:''}" onclick="setCatFilter('${f.key}')">${f.label}</button>`).join('');
+
+    let filtered=activeFilter==='all'?visible:activeFilter==='none'?visible.filter(i=>!i.status):visible.filter(i=>i.status===activeFilter);
+    if(activeCategory!=='all'){
+      filtered=activeCategory==='uncategorized'?filtered.filter(i=>!i.category):filtered.filter(i=>i.category===activeCategory);
+    }
+    const toShow=[...filtered,...deleted];
+    if(toShow.length===0){list.innerHTML='<div class="no-results">No items match this filter.</div>';return;}
+
+    list.innerHTML=toShow.map(item=>{
+      const s=item.status,ct=getItemChange(item),isDel=item.deleted;
+      const border=isDel?'is-deleted':ct==='new'?'is-new':ct==='modified'?'is-modified':(s||'');
+      const img=item.editing?(editImgData[item.id]!==undefined?editImgData[item.id]:item.img):item.img;
+      const thumb=img?`<img class="item-thumb" src="${img}" alt="" />`:`<div class="item-thumb-ph"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="1" y="3" width="14" height="10" rx="1.5"/><circle cx="5.5" cy="6.5" r="1"/><path d="M1 10l4-3 3 3 2-2 5 4"/></svg></div>`;
+      const catTag=item.category?`<div class="item-category">${item.category}</div>`:'';
+      const ctag=isDel?`<div class="change-tag deleted">Pending removal — will delete on publish</div>`:ct==='new'?`<div class="change-tag new">New — not yet published</div>`:ct==='modified'?`<div class="change-tag modified">Modified — not yet published</div>`:'';
+      if(isDel){
+        return `<div class="item-card is-deleted"><div class="item-inner">${thumb}<div class="item-meta"><div class="item-name">${item.name}</div>${catTag}${ctag}</div></div><div class="item-actions"><button class="action-btn a-restore" style="flex:2;" onclick="restoreItem(${item.id})">↩ Undo Remove</button></div></div>`;
+      }
+      const eth=editImgData[item.id]!==undefined?editImgData[item.id]:item.img;
+      const catOpts=CATS.map(c=>`<option value="${c}" ${item.category===c?'selected':''}>${c}</option>`).join('');
+      const ep=item.editing?`<div class="edit-panel open"><div class="ep-thumb-wrap" id="ei-wrap-${item.id}" style="${eth?'':'display:none;'}"><img id="ei-img-${item.id}" src="${eth||''}" alt="" /><button class="ep-thumb-rm" onclick="removeEditImg(${item.id})">✕</button></div><div class="ep-row"><input type="text" id="ei-name-${item.id}" value="${item.name}" onkeydown="if(event.key==='Enter')saveEditItem(${item.id});if(event.key==='Escape')cancelEditItem(${item.id})" /><label class="ep-photo-label" for="ei-file-${item.id}"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="1.5"/><circle cx="5.5" cy="6.5" r="1"/><path d="M1 10l4-3 3 3 2-2 5 4"/></svg>Photo</label><input type="file" id="ei-file-${item.id}" accept="image/*" onchange="handleEditImg(${item.id},event)" style="display:none" /></div><div class="ep-row"><select id="ei-cat-${item.id}"><option value="">No category</option>${catOpts}</select></div><div class="ep-row"><button class="ep-save" onclick="saveEditItem(${item.id})">Save changes</button><button class="ep-cancel" onclick="cancelEditItem(${item.id})">Cancel</button></div></div>`:'';
+      const fc=featuredCount();
+      const featDisabled=!item.featured&&fc>=3;
+      const featBtnCls='action-btn a-feat'+(item.featured?' is-featured':'')+(featDisabled?' maxed':'');
+      const featBtn=`<button class="${featBtnCls}" onclick="${featDisabled?'':'toggleFeatured('+item.id+')'}" title="${featDisabled?'Max 3 featured items':'Toggle featured'}">★ ${item.featured?'Featured':'Feature'}</button>`;
+      const featBadge=item.featured?`<div class="featured-badge">★ Featured</div>`:'';
+      const wc=wordCount(item.description||'');
+      const wcCls=wc===0?'warn':wc>=15&&wc<=30?'ok':wc<15?'warn':'bad';
+      const wcText=wc===0?'Add a description (15–30 words)':wc>=15&&wc<=30?`${wc} words — good to go`:wc<15?`${wc} words — need at least 15`:`${wc} words — max is 30`;
+      const fp=item.featured?`<div class="feat-panel open"><div class="feat-panel-title">Featured description</div><div class="feat-slots">${fc}/3 featured slots used</div><textarea class="feat-textarea${(wc>0&&(wc<15||wc>30))?' invalid':''}" id="feat-desc-${item.id}" placeholder="Write a short description of this item (15–30 words)..." oninput="updateDescription(${item.id})">${item.description||''}</textarea><div class="feat-word-count ${wcCls}" id="feat-wc-${item.id}">${wcText}</div></div>`:'';
+      return `<div class="item-card ${border}"><div class="item-inner">${thumb}<div class="item-meta"><div class="item-name">${item.name}</div>${catTag}${featBadge}${ctag}</div><span class="status-badge ${s||'none'}">${statusLabel(s)}</span></div><div class="item-actions"><button class="action-btn ${s==='in-season'?'a-in':''}" onclick="setStatus(${item.id},'in-season')">✓ In Season</button><button class="action-btn ${s==='out-of-season'?'a-out':''}" onclick="setStatus(${item.id},'out-of-season')">✗ Out of Season</button><button class="action-btn ${s==='coming-soon'?'a-soon':''}" onclick="setStatus(${item.id},'coming-soon')">⏱ Soon</button><button class="action-btn ${item.editing?'a-edit':''}" onclick="toggleEditItem(${item.id})">✎ Edit</button>${featBtn}<button class="action-btn a-del" onclick="softDeleteItem(${item.id})">🗑</button></div>${fp}${ep}</div>`;
+    }).join('');
+  }
+
+  function render(){renderBar();renderInventory();}
+  render();
+</script>
+</body>
+</html>
