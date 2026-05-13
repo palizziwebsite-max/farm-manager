@@ -198,9 +198,14 @@ export default async function handler(req, res) {
         console.log(`Deleting record ${record.id}, Webflow ID: ${wfId}`);
         if (wfId && wfId.trim() !== '') {
           try {
-            // First unpublish then delete
+            // Set item as draft first to unpublish from live site
+            await webflowRequest('PATCH', `/collections/${WEBFLOW_COLLECTION}/items/${wfId}`, {
+              fieldData: {},
+              isDraft: true,
+            });
+            // Then delete the CMS item entirely
             await webflowRequest('DELETE', `/collections/${WEBFLOW_COLLECTION}/items/${wfId}`);
-            console.log(`Deleted Webflow item ${wfId}`);
+            console.log(`Unpublished and deleted Webflow item ${wfId}`);
           } catch(e) {
             console.warn('Webflow delete failed:', e.message);
           }
