@@ -195,8 +195,17 @@ export default async function handler(req, res) {
     for (const record of existingRecords) {
       if (!publishedAirtableIds.includes(record.id)) {
         const wfId = record.fields['Webflow ID'];
-        if (wfId) {
-          try { await deleteWebflowItem(wfId); } catch(e) { console.warn('Webflow delete failed:', e.message); }
+        console.log(`Deleting record ${record.id}, Webflow ID: ${wfId}`);
+        if (wfId && wfId.trim() !== '') {
+          try {
+            // First unpublish then delete
+            await webflowRequest('DELETE', `/collections/${WEBFLOW_COLLECTION}/items/${wfId}`);
+            console.log(`Deleted Webflow item ${wfId}`);
+          } catch(e) {
+            console.warn('Webflow delete failed:', e.message);
+          }
+        } else {
+          console.warn(`No Webflow ID found for Airtable record ${record.id} - skipping Webflow delete`);
         }
         await deleteAirtableRecord(record.id);
       }
