@@ -33,14 +33,22 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
+    // Map Airtable display values back to app slug format
+    function toStatusSlug(s) {
+      if (s === 'In Season')     return 'in-season';
+      if (s === 'Out of Season') return 'out-of-season';
+      if (s === 'Coming Soon')   return 'coming-soon';
+      return null;
+    }
+
     // Map Airtable records to the format the app expects
     const items = data.records.map(record => ({
-      id:          record.id, // use airtable record id as local id too
+      id:          record.id,
       airtableId:  record.id,
       webflowId:   record.fields['Webflow ID'] || null,
       name:        record.fields['Name'] || '',
       category:    record.fields['Category'] || '',
-      status:      record.fields['Status'] || null,
+      status:      toStatusSlug(record.fields['Status'] || ''),
       img:         record.fields['Photo'] || null,
       featured:    record.fields['Featured'] || false,
       description: record.fields['Description'] || '',
