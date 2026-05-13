@@ -213,6 +213,24 @@
 </div>
 
 <script>
+  // Cloudinary config
+  const CLOUDINARY_CLOUD = 'dr1lmbdx9';
+  const CLOUDINARY_PRESET = 'farm-manager';
+
+  async function uploadToCloudinary(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_PRESET);
+    formData.append('folder', 'farm-manager');
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) throw new Error('Image upload failed');
+    const data = await res.json();
+    return data.secure_url;
+  }
+
   let activeTab = 'inventory';
   let items = [], publishedItems = [];
   let addImgData = null, editImgData = {};
@@ -245,7 +263,14 @@
     return null;
   }
 
-  function handleAddImg(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>{addImgData=ev.target.result;document.getElementById('add-img-preview').src=addImgData;document.getElementById('add-img-wrap').style.display='block';};r.readAsDataURL(file);}
+  async function handleAddImg(e){
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{addImgData=ev.target.result;document.getElementById('add-img-preview').src=addImgData;document.getElementById('add-img-wrap').style.display='block';};
+    reader.readAsDataURL(file);
+    try{const url=await uploadToCloudinary(file);addImgData=url;document.getElementById('add-img-preview').src=url;}
+    catch(err){console.error('Cloudinary upload failed:',err);}
+  }
   function removeAddImg(){addImgData=null;document.getElementById('add-img-input').value='';document.getElementById('add-img-wrap').style.display='none';}
 
   function addItem(){
@@ -324,7 +349,29 @@
     render();
     if(item&&item.editing){const inp=document.getElementById('ei-name-'+id);if(inp){inp.focus();inp.select();}}
   }
-  function handleEditImg(id,e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>{editImgData[id]=ev.target.result;const w=document.getElementById('ei-wrap-'+id),img=document.getElementById('ei-img-'+id);if(w&&img){img.src=editImgData[id];w.style.display='block';}};r.readAsDataURL(file);}
+  async function handleEditImg(id,e){
+    const file=e.target.files[0];if(!file)return;
+    // Show local preview immediately
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      editImgData[id]=ev.target.result;
+      const w=document.getElementById('ei-wrap-'+id),img=document.getElementById('ei-img-'+id);
+      if(w&&img){img.src=editImgData[id];w.style.display='block';}
+    };
+    reader.readAsDataURL(file);
+    // Upload to Cloudinary in background
+    try {
+      const url=await uploadToCloudinary(file);
+      editImgData[id]=url;
+      const img=document.getElementById('ei-img-'+id);
+      if(img)img.src=url;
+      // Update item in state
+      const item=items.find(i=>i.id===id);
+      if(item)item.img=url;
+    } catch(err){
+      console.error('Cloudinary upload failed:',err);
+    }
+  }
   function removeEditImg(id){editImgData[id]=null;const inp=document.getElementById('ei-file-'+id);if(inp)inp.value='';const w=document.getElementById('ei-wrap-'+id);if(w)w.style.display='none';}
   function saveEditItem(id){
     const el=document.getElementById('ei-name-'+id);const name=el?el.value.trim():'';if(!name){if(el)el.focus();return;}
