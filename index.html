@@ -476,6 +476,8 @@
     const deleted=items.filter(i=>i.deleted);
     const loading=document.getElementById('inv-loading');if(loading)loading.style.display='none';
     if(items.length===0){empty.style.display='block';label.style.display='none';fs.style.display='none';list.innerHTML='';return;}
+    // If all items are pending deletion, still show them so client can see/undo
+    if(visible.length===0&&deleted.length===0){empty.style.display='block';label.style.display='none';fs.style.display='none';list.innerHTML='';return;}
     empty.style.display='none';label.style.display='block';fs.style.display='block';
     const inS=visible.filter(i=>i.status==='in-season').length;
     const outS=visible.filter(i=>i.status==='out-of-season').length;
