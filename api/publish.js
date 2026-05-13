@@ -129,6 +129,15 @@ async function publishWebflowItems(itemIds) {
   });
 }
 
+// Trigger full site publish so deletions and changes go live
+const WEBFLOW_SITE = '69c17c764545ce8773ff9aaf';
+async function publishSite() {
+  await webflowRequest('POST', `/sites/${WEBFLOW_SITE}/publish`, {
+    publishToWebflowSubdomain: true,
+  });
+  console.log('Site published successfully');
+}
+
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -218,6 +227,9 @@ export default async function handler(req, res) {
 
     // Publish all updated items live on Webflow
     await publishWebflowItems(webflowIdsToPublish);
+
+    // Trigger full site publish to push all changes including deletions live
+    await publishSite();
 
     return res.status(200).json({ success: true, results });
 
