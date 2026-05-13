@@ -149,9 +149,6 @@ export default async function handler(req, res) {
 
     // Filter out any items without a name to prevent Airtable errors
     const validItems = items.filter(i => i.name && i.name.trim().length > 0);
-    if (validItems.length === 0) {
-      return res.status(400).json({ error: 'No valid items to publish' });
-    }
 
     const existingRecords = await getAllAirtableRecords();
     const results = [];
