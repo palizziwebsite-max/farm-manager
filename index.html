@@ -218,6 +218,27 @@
   const CLOUDINARY_CLOUD = 'dr1lmbdx9';
   const CLOUDINARY_PRESET = 'farm-manager';
 
+  function compressImage(file) {
+    return new Promise((resolve) => {
+      const MAX_WIDTH = 1200;
+      const QUALITY = 0.78;
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onload = ev => {
+        img.onload = () => {
+          let w = img.width, h = img.height;
+          if (w > MAX_WIDTH) { h = Math.round(h * MAX_WIDTH / w); w = MAX_WIDTH; }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          canvas.toBlob(blob => resolve(blob), 'image/jpeg', QUALITY);
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   async function uploadToCloudinary(file) {
     const formData = new FormData();
     formData.append('file', file);
@@ -269,7 +290,7 @@
     const reader=new FileReader();
     reader.onload=ev=>{addImgData=ev.target.result;document.getElementById('add-img-preview').src=addImgData;document.getElementById('add-img-wrap').style.display='block';};
     reader.readAsDataURL(file);
-    try{const url=await uploadToCloudinary(file);addImgData=url;document.getElementById('add-img-preview').src=url;}
+    try{const compressed=await compressImage(file);const url=await uploadToCloudinary(compressed);addImgData=url;document.getElementById('add-img-preview').src=url;}
     catch(err){console.error('Cloudinary upload failed:',err);}
   }
   function removeAddImg(){addImgData=null;document.getElementById('add-img-input').value='';document.getElementById('add-img-wrap').style.display='none';}
@@ -360,13 +381,13 @@
       if(w&&img){img.src=editImgData[id];w.style.display='block';}
     };
     reader.readAsDataURL(file);
-    // Upload to Cloudinary in background
+    // Compress then upload to Cloudinary in background
     try {
-      const url=await uploadToCloudinary(file);
+      const compressed=await compressImage(file);
+      const url=await uploadToCloudinary(compressed);
       editImgData[id]=url;
       const img=document.getElementById('ei-img-'+id);
       if(img)img.src=url;
-      // Update item in state
       const item=items.find(i=>i.id===id);
       if(item)item.img=url;
     } catch(err){
