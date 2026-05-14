@@ -421,7 +421,12 @@
 
       data.results.forEach(r=>{
         const item=items.find(i=>i.id===r.localId);
-        if(item){item.airtableId=r.airtableId;item.webflowId=r.webflowId;}
+        if(item){
+          item.airtableId=r.airtableId;
+          item.webflowId=r.webflowId;
+          // Update the local id to match airtable id so buttons work immediately
+          item.id=r.airtableId;
+        }
       });
 
       items=items.filter(i=>!i.deleted);
