@@ -181,8 +181,9 @@
           <select id="product-category">
             <option value="">Select category...</option>
             <option value="Vegetables">Vegetables</option>
-            <option value="Fruit">Fruit</option>
             <option value="Peppers">Peppers</option>
+            <option value="Fruit">Fruit</option>
+            <option value="Flowers">Flowers</option>
             <option value="Other">Other</option>
           </select>
         </div>
@@ -237,7 +238,7 @@
   let activeFilter = 'all';
   let activeCategory = 'all';
   let publishState = 'clean', lastPublished = null;
-  const CATS = ['Vegetables','Fruit','Peppers','Other'];
+  const CATS = ['Vegetables','Peppers','Fruit','Flowers','Other'];
 
   function switchTab(t) {
     activeTab = t;
