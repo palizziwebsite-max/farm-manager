@@ -229,7 +229,12 @@ export default async function handler(req, res) {
     await publishWebflowItems(webflowIdsToPublish);
 
     // Trigger full site publish to push all changes including deletions live
-    await publishSite();
+    try {
+      await publishSite();
+    } catch(e) {
+      console.error('Site publish failed:', e.message);
+      // Don't fail the whole request over this
+    }
 
     return res.status(200).json({ success: true, results });
 
