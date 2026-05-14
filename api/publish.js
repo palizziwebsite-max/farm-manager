@@ -74,8 +74,13 @@ function mapStatus(s) {
 }
 
 function mapCategory(c) {
-  const valid = ['Vegetables', 'Fruit', 'Peppers', 'Other'];
+  const valid = ['Vegetables', 'Peppers', 'Fruit', 'Flowers', 'Other'];
   return valid.includes(c) ? c : '';
+}
+
+function sortOrder(c) {
+  const order = { 'Vegetables': 1, 'Peppers': 2, 'Fruit': 3, 'Flowers': 4, 'Other': 5 };
+  return order[c] || 99;
 }
 
 function buildSlug(name, airtableId) {
@@ -93,6 +98,7 @@ function buildWebflowFields(item) {
     featured:      item.featured || false,
     description:   item.description || '',
     'airtable-id': item.airtableId || '',
+    'sort-order':   sortOrder(item.category || ''),
   };
 
   // Only include photo if there's an actual URL
@@ -175,6 +181,7 @@ export default async function handler(req, res) {
         Photo:       item.img || '',
         Featured:    item.featured || false,
         Description: item.description || '',
+        'Sort Order': sortOrder(item.category || ''),
       };
 
       let airtableId = item.airtableId;
